@@ -833,10 +833,21 @@ object TestAppUtils {
             }
         }
 
-        val effectiveAuthorizedDataElements = computeDeviceKeyAuthorizedDataElements(
-            documentType,
-            deviceKeyAuthorizedDataElements
-        )
+        // TEMPORARY: the Longfellow ZK circuit requires deviceKeyInfo to hold only "deviceKey",
+        // so a keyAuthorizations entry makes proof generation fail
+        // (MDOC_PROVER_GENERAL_FAILURE). Until that is fixed in Longfellow
+        // (https://github.com/longfellow-zk/longfellow-zk/issues/220), a ZKP-friendly
+        // document is issued without any key authorizations. Remove this once it is fixed.
+        val effectiveAuthorizedNamespaces =
+            if (zkFriendly) emptyList() else deviceKeyAuthorizedNamespaces
+        val effectiveAuthorizedDataElements = if (zkFriendly) {
+            emptyMap()
+        } else {
+            computeDeviceKeyAuthorizedDataElements(
+                documentType,
+                deviceKeyAuthorizedDataElements
+            )
+        }
 
         // Create authentication keys...
         for (domain in listOf(
@@ -887,7 +898,7 @@ object TestAppUtils {
                     digestAlgorithm = Algorithm.SHA256,
                     valueDigests = issuerNamespaces.getValueDigests(Algorithm.SHA256),
                     deviceKey = mdocCredential.getAttestation().ecPublicKey,
-                    deviceKeyAuthorizedNamespaces = deviceKeyAuthorizedNamespaces,
+                    deviceKeyAuthorizedNamespaces = effectiveAuthorizedNamespaces,
                     deviceKeyAuthorizedDataElements = effectiveAuthorizedDataElements,
                 )
                 val taggedEncodedMso = Cbor.encode(Tagged(
